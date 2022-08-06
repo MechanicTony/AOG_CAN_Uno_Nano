@@ -1,5 +1,5 @@
 /*
-05.07.2022
+06.08.2022
 Fendt K_Bus code for use with AgOpenGPS
 like all Arduino code, copyed and pasted from everywhere
 
@@ -14,6 +14,11 @@ Connected to AgOpenGPS as machine module via USB, two relay contacts are connect
 Automatic operation of Big GO/END via AgOpenGPS:
 - If hyd lift is enabled, auto sections is ON, and hyd lift is ON, AgOpen will press the big GO/END via hitch lift
 - If hyd lift is enabled, and "Invert Relays" is ON, AgOpen will press the big GO/END via secton control (Section 1)
+
+Note: Machine Config User1 is used to set what buttons you would like AgOpen to press via CAN.
+User1 = 1 is the Left (Green) hydralic +/- on the drive handle
+User1 = 2 is the Right(Red) hydralic +/- on the drive handle
+User1 = Anything else is the Big Go/End
 
 */
 #include <mcp_can.h>                                         
@@ -32,7 +37,7 @@ MCP_CAN CAN0(10);         // Chip Select pin (Check CAN Board)  Standard = 10 or
 #define WorkSW_PIN 7      // Pin D7 Work Switch                                         
 #define SteerSW_PIN 8     // Pin D8 Steer Switch                                       
 
-#define Model 1           // Model 0 = Com2&3 Fendt 100kbs K-Bus
+#define Model 0           // Model 0 = Com2&3 Fendt 100kbs K-Bus
                           // Model 1 = SCR/S4 Fendt 250kbs K-Bus
 
 #define relayON 1         // 1 = High is ON, 0 = Low is ON   
@@ -83,6 +88,7 @@ byte endLift[8]   = {0x15, 0x00, 0x00, 0xCA, 0x00, 0x04, 0x00, 0x00} ;    //  li
   unsigned long lastCurrentTime = LOOP_TIME;
   unsigned long currentTime = LOOP_TIME;
   uint16_t count = 0;
+  uint16_t countHyd = 0;
 
   //Comm checks
   uint8_t watchdogTimer = 0; //make sure we are talking to AOG
@@ -146,10 +152,57 @@ void setup()
   CAN0.init_Filt(5,0,0x061F1500);       // Init sixth filter...   - As above  
 
   modelID = 0x61F;
-  goPress[1]  = 0x33; //Com2&3 Big GO
-  goLift[1]   = 0x33; //Com2&3 Big GO
-  endPress[1] = 0x34; //Com2&3 Big END
-  endLift[1]  = 0x34; //Com2&3 Big END
+
+  if(aogConfig.user1 == 1){
+   goPress[1]  = 0x4A; //Com2&3 Drive Handle Green
+   goLift[1]   = 0x4A; //Com2&3 Drive Handle Green
+   endPress[1] = 0x4A; //Com2&3 Drive Handle Green
+   endLift[1]  = 0x4A; //Com2&3 Drive Handle Green
+
+   goPress[4]  = 0x00; 
+   goLift[4]   = 0x00; 
+   endPress[4] = 0x00; 
+   endLift[4]  = 0x00;  
+
+   goPress[5]  = 0x8B; //Com2&3 Drive Handle Green - Press
+   goLift[5]   = 0x57; //Com2&3 Drive Handle Green Release
+   endPress[5] = 0x0F; //Com2&3 Drive Handle Green + Press
+   endLift[5]  = 0x57; //Com2&3 Drive Handle Green Release 
+
+   goPress[6]  = 0x39; //Com2&3 Drive Handle Green - Press
+   goLift[6]   = 0x15; //Com2&3 Drive Handle Green Release
+   endPress[6] = 0x1D; //Com2&3 Drive Handle Green + Press
+   endLift[6]  = 0x15; //Com2&3 Drive Handle Green Release   
+  }
+  
+  else if(aogConfig.user1 == 2){
+   goPress[1]  = 0x49; //Com2&3 Drive Handle Red
+   goLift[1]   = 0x49; //Com2&3 Drive Handle Red
+   endPress[1] = 0x49; //Com2&3 Drive Handle Red
+   endLift[1]  = 0x49; //Com2&3 Drive Handle Red  
+
+   goPress[4]  = 0x00; 
+   goLift[4]   = 0x00; 
+   endPress[4] = 0x00; 
+   endLift[4]  = 0x00;  
+
+   goPress[5]  = 0x8B; //Com2&3 Drive Handle Red - Press
+   goLift[5]   = 0x57; //Com2&3 Drive Handle Red Release
+   endPress[5] = 0x0F; //Com2&3 Drive Handle Red + Press
+   endLift[5]  = 0x57; //Com2&3 Drive Handle Red Release 
+
+   goPress[6]  = 0x39; //Com2&3 Drive Handle Red - Press
+   goLift[6]   = 0x15; //Com2&3 Drive Handle Red Release
+   endPress[6] = 0x1D; //Com2&3 Drive Handle Red + Press
+   endLift[6]  = 0x15; //Com2&3 Drive Handle Red Release
+  }
+  
+  else{
+   goPress[1]  = 0x33; //Com2&3 Big GO
+   goLift[1]   = 0x33; //Com2&3 Big GO
+   endPress[1] = 0x34; //Com2&3 Big END
+   endLift[1]  = 0x34; //Com2&3 Big END
+  }    
 
   goPress[2]  = 0x1E; //Com2&3 Commands
   goLift[2]   = 0x1E; 
@@ -177,10 +230,25 @@ void setup()
   CAN0.init_Filt(5,0,0x06131500);       // Init sixth filter...   - As above  
 
   modelID = 0x613;
-  goPress[1]  = 0x20; //SCR/S4 Big GO
-  goLift[1]   = 0x20; //SCR/S4 Big GO
-  endPress[1] = 0x21; //SCR/S4 Big END
-  endLift[1]  = 0x21; //SCR/S4 Big END
+
+  if(aogConfig.user1 == 1){
+   goPress[1]  = 0x26; //SCR/S4 Drive Handle Green -
+   goLift[1]   = 0x26; //SCR/S4 Drive Handle Green -
+   endPress[1] = 0x25; //SCR/S4 Drive Handle Green +
+   endLift[1]  = 0x25; //SCR/S4 Drive Handle Green + 
+  }
+  else if(aogConfig.user1 == 2){
+   goPress[1]  = 0x29; //SCR/S4 Drive Handle Red -
+   goLift[1]   = 0x29; //SCR/S4 Drive Handle Red -
+   endPress[1] = 0x28; //SCR/S4 Drive Handle Red +
+   endLift[1]  = 0x28; //SCR/S4 Drive Handle Red +
+  }
+  else{
+   goPress[1]  = 0x20; //SCR/S4 Big GO
+   goLift[1]   = 0x20; //SCR/S4 Big GO
+   endPress[1] = 0x21; //SCR/S4 Big END
+   endLift[1]  = 0x21; //SCR/S4 Big END
+  }    
 
   goPress[2]  = 0x06; //SCR/S4 Commands
   goLift[2]   = 0x06; 
@@ -257,11 +325,24 @@ void loop()
             Serial.write(AOG, sizeof(AOG));
             Serial.flush();   // flush out buffer
           }
+          
     }//AOG timed loop
 
    //Hitch Control
+   if((aogConfig.user1 == 1 || aogConfig.user1 == 2) && Model == 0)
+   {
+    if(countHyd++ > 12) //500ms
+    {
+      countHyd = 0;
+      if (goDown)   liftGo();   //Lift Go button if pressed
+      if (endDown)   liftEnd(); //Lift End button if pressed
+    }    
+   }
+   
+   else{
     if (goDown)   liftGo();   //Lift Go button if pressed
     if (endDown)   liftEnd(); //Lift End button if pressed
+   }
 
     //If Invert Relays is selected in hitch settings, Section 1 is used as trigger.
     if (aogConfig.isRelayActiveHigh == 1)
@@ -489,6 +570,7 @@ void loop()
   {                                     
     CAN0.sendMsgBuf(modelID, 0, 8, goPress);
     goDown = true;
+    countHyd = 0;
   }
 
   void liftGo()
@@ -501,6 +583,7 @@ void loop()
   {
     CAN0.sendMsgBuf(modelID, 0, 8, endPress);
     endDown = true;
+    countHyd = 0;
   }
 
   void liftEnd()
