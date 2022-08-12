@@ -19,6 +19,7 @@ Note: Machine Config User1 is used to set what buttons you would like AgOpen to 
 User1 = 1 is the Left (Green) hydralic +/- on the drive handle
 User1 = 2 is the Right(Red) hydralic +/- on the drive handle
 User1 = Anything else is the Big Go/End
+(If User1 = 1 or 2 the Big Go/End will not turn the work relay ON/OFF)
 
 */
 #include <mcp_can.h>                                         
@@ -370,12 +371,16 @@ void loop()
       if(workSwitchCAN == 1 && (currentTime - workTriggerTime >= onDelay))
       {
         workRelayControl = workSwitchCAN;
-        digitalWrite(WorkSW_PIN, relayON);
+        if (aogConfig.user1 != 1 && aogConfig.user1 != 2){
+         digitalWrite(WorkSW_PIN, relayON);          
+        }
       }
       else if(workSwitchCAN == 0 && (currentTime - workTriggerTime >= offDelay))
       {
         workRelayControl = workSwitchCAN;
-        digitalWrite(WorkSW_PIN, !relayON); 
+        if (aogConfig.user1 != 1 && aogConfig.user1 != 2){        
+         digitalWrite(WorkSW_PIN, !relayON); 
+        }
       }      
      }//End work relay needs change
      
