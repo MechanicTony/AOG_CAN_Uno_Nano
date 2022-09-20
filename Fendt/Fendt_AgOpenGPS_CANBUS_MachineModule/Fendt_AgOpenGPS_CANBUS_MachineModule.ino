@@ -1,5 +1,5 @@
 /*
-06.08.2022
+20.09.2022
 Fendt K_Bus code for use with AgOpenGPS
 like all Arduino code, copyed and pasted from everywhere
 
@@ -20,6 +20,7 @@ User1 = 1 is the Left (Green) hydralic +/- on the drive handle
 User1 = 2 is the Right(Red) hydralic +/- on the drive handle
 User1 = Anything else is the Big Go/End
 (If User1 = 1 or 2 the Big Go/End will not turn the work relay ON/OFF)
+User1 = 3 (SCR/S4 Only)is used for the ISOBUS sprayer on/off loaded to the red float button
 
 */
 #include <mcp_can.h>                                         
@@ -59,6 +60,7 @@ unsigned char len = 0;
 unsigned char rxBuf[8];
 char msgString[128];
 
+bool isSprayerOn;
 bool workSwitchCAN;
 bool workRelayControl;
 unsigned long workTriggerTime;
@@ -244,6 +246,12 @@ void setup()
    endPress[1] = 0x28; //SCR/S4 Drive Handle Red +
    endLift[1]  = 0x28; //SCR/S4 Drive Handle Red +
   }
+  else if(aogConfig.user1 == 3){
+   goPress[1]  = 0x2A; //SCR/S4 Red Float
+   goLift[1]   = 0x2A; //SCR/S4 Red Float
+   endPress[1] = 0x2A; //SCR/S4 Red Float
+   endLift[1]  = 0x2A; //SCR/S4 Red Float
+  }  
   else{
    goPress[1]  = 0x20; //SCR/S4 Big GO
    goLift[1]   = 0x20; //SCR/S4 Big GO
@@ -273,6 +281,7 @@ void setup()
   currentTime = millis();
   workTriggerTime = currentTime;
   workSwitchCAN = false;
+  isSprayerOn = false;
 
   if(deBug){
     Serial.println(bootText1);
@@ -433,6 +442,13 @@ void loop()
         workTriggerTime = millis();
         if(deBug) Serial.print("\t\tBig END Pressed");                                                  
       }
+
+    //ISOBUS Sprayer (Red Float)
+      if (rxBuf[1] == 0x2A && rxBuf[4] == 0x80)       //Red Float
+      {
+        isSprayerOn = !isSprayerOn;                 //Float button pressed manually
+        if(deBug) Serial.print("\t\tRed Float Pressed");                                                 
+      }      
       
     }//End if SCR/S4
     
@@ -572,10 +588,23 @@ void loop()
 
 //Fendt K-Bus Buttons
   void pressGo()
-  {                                     
-    CAN0.sendMsgBuf(modelID, 0, 8, goPress);
-    goDown = true;
-    countHyd = 0;
+  { 
+    if(aogConfig.user1 == 3)
+    {    
+      if(isSprayerOn == false)   //Sprayer is OFF so we better turn it ON.
+      {
+        CAN0.sendMsgBuf(modelID, 0, 8, goPress);
+        isSprayerOn = true;
+        goDown = true;
+        countHyd = 0;                              
+      }
+    }
+    else
+    {
+      CAN0.sendMsgBuf(modelID, 0, 8, goPress);
+      goDown = true;
+      countHyd = 0;      
+    }
   }
 
   void liftGo()
@@ -586,9 +615,22 @@ void loop()
 
   void pressEnd() 
   {
-    CAN0.sendMsgBuf(modelID, 0, 8, endPress);
-    endDown = true;
-    countHyd = 0;
+    if(aogConfig.user1 == 3)
+    {    
+      if(isSprayerOn == true)   //Sprayer is ON so we better turn it OFF.
+      {
+        CAN0.sendMsgBuf(modelID, 0, 8, endPress);
+        isSprayerOn = false;
+        endDown = true;
+        countHyd = 0;                            
+      }
+    }
+    else
+    {
+      CAN0.sendMsgBuf(modelID, 0, 8, endPress);
+      endDown = true;
+      countHyd = 0;
+    }
   }
 
   void liftEnd()
