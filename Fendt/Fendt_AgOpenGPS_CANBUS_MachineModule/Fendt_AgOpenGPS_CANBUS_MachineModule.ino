@@ -37,7 +37,9 @@ MCP_CAN CAN0(10);         // Chip Select pin (Check CAN Board)  Standard = 10 or
 //#define ModuleSpeed MCP_8MHZ    // Small blue CAN board
 
 #define WorkSW_PIN 7      // Pin D7 Work Switch                                         
-#define SteerSW_PIN 8     // Pin D8 Steer Switch                                       
+#define SteerSW_PIN 8     // Pin D8 Steer Switch  
+
+#define SteerRelayType 1  // 1 = Pulse, 0 = On/Off
 
 #define Model 0           // Model 0 = Com2&3 Fendt 100kbs K-Bus
                           // Model 1 = SCR/S4 Fendt 250kbs K-Bus
@@ -60,6 +62,7 @@ unsigned char len = 0;
 unsigned char rxBuf[8];
 char msgString[128];
 
+bool isRelayOn = false;
 bool isSprayerOn;
 bool workSwitchCAN;
 bool workRelayControl;
@@ -310,6 +313,13 @@ void loop()
           //If connection lost to AgOpenGPS, the watchdog will count up 
           if (watchdogTimer++ > 250) watchdogTimer = 12;
 
+          //Turn off steer relay if in pulse mode
+          if(isRelayOn && SteerRelayType == 1)
+          {
+            isRelayOn = false;
+            digitalWrite(SteerSW_PIN, !relayON);
+          }
+
           //clean out serial buffer to prevent buffer overflow
           if (serialResetTimer++ > 20)
           {
@@ -419,6 +429,7 @@ void loop()
       if (rxBuf[1] == 0x22 && rxBuf[4] == 0x80)       //Small Go
       {
         digitalWrite(SteerSW_PIN, relayON);
+        isRelayOn = true;
         if(deBug) Serial.print("\t\tSmall GO Pressed");                                                 
       } 
          
@@ -459,6 +470,7 @@ void loop()
       if (rxBuf[1] == 0x35 && rxBuf[4] == 0x80)       //Small Go
       {
         digitalWrite(SteerSW_PIN, relayON);
+        isRelayOn = true;
         if(deBug) Serial.print("\t\tSmall GO Pressed");                                                 
       } 
          
